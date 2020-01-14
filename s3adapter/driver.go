@@ -28,7 +28,7 @@ type S3Driver struct {
 }
 
 func (d *S3Driver) s3service() *s3.S3 {
-	creds := credentials.NewStaticCredentials(d.AWSAccessKeyID, d.AWSAccessKeyID, "")
+	creds := credentials.NewStaticCredentials(d.AWSAccessKeyID, d.AWSSecretAccessKey, "")
 
 	// By default make sure a region is specified
 	s3client := s3.New(session.Must(session.NewSession(

@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/koofr/graval"
-	"github.com/journeymidnight/yig-ftp/s3adapter"
+	"github.com/journeymidnight/yig-s3ftp/s3adapter"
 	"log"
 )
 
