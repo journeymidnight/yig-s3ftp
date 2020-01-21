@@ -13,10 +13,11 @@ import (
 	"os"
 	"io"
 	"mime"
-	"bytes"
-	"github.com/journeymidnight/aws-sdk-go/aws/awsutil"
 	"log"
+	"bytes"
 )
+
+const PartLength = 5 << 20
 
 type S3Driver struct {
 	AWSRegion          string
@@ -310,28 +311,106 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 		contentType = "application/octet-stream"
 	}
 
-	var body io.ReadSeeker
-	if reader != nil {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(reader)
-		body = bytes.NewReader(buf.Bytes())
+	if strings.HasSuffix(path, "/") {
+		var body io.ReadSeeker
+		if reader != nil {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(reader)
+			body = bytes.NewReader(buf.Bytes())
+		}
+		param := &s3.PutObjectInput{
+			Bucket:      aws.String(d.AWSBucketName), // Required
+			Key:         aws.String(path),            // Required
+			Body:        body,
+			ContentType: aws.String(contentType),
+		}
+		_, err := svc.PutObject(param)
+		if err != nil {
+			fmt.Println("Make dir error:", err)
+			return false
+		}
+		return true
 	}
 
-	params := &s3.PutObjectInput{
-		Bucket:      aws.String(d.AWSBucketName), // Required
-		Key:         aws.String(path),            // Required
-		Body:        body,
+	params := &s3.CreateMultipartUploadInput{
+		Bucket:      aws.String(d.AWSBucketName),
+		Key:         aws.String(path),
 		ContentType: aws.String(contentType),
 	}
-	resp, err := svc.PutObject(params)
+	out, err := svc.CreateMultipartUpload(params)
 	if err != nil {
-		// A service error occurred.
 		fmt.Println("Error: ", err)
 		return false
 	}
+	uploadId := *out.UploadId
 
-	// Pretty-print the response data.
-	fmt.Println(awsutil.StringValue(resp))
+	var partNum int64 = 1
+	offset := 0
+	buf := make([]byte, PartLength)
+	var etags []string
+	for {
+		n, err := reader.Read(buf[offset:])
+		if err != nil && err != io.EOF {
+			fmt.Println("Put file error: ", err)
+			AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
+			return false
+		}
+		fmt.Println("$$$$$$$ n:", n, "err:", err)
+		if err == io.EOF {
+			if offset != 0 {
+				etag, err := UploadPart(svc, d.AWSBucketName, path, buf, uploadId, partNum)
+				if err != nil {
+					fmt.Println("UploadPart error: ", err)
+					AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
+					return false
+				}
+				etags = append(etags, etag)
+			}
+			break
+		}
+
+		offset += n
+		if n < PartLength {
+			continue
+		}
+
+		etag, err := UploadPart(svc, d.AWSBucketName, path, buf, uploadId, partNum)
+		if err != nil {
+			fmt.Println("UploadPart error: ", err)
+			AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
+			return false
+		}
+		buf = make([]byte, PartLength)
+		offset = 0
+		partNum ++
+		etags = append(etags, etag)
+	}
+
+	completedUpload := &s3.CompletedMultipartUpload{
+		Parts: make([]*s3.CompletedPart, len(etags)),
+	}
+
+	for i := 0; i < len(etags); i++ {
+		completedUpload.Parts[i] = &s3.CompletedPart{
+			ETag:       aws.String(etags[i]),
+			PartNumber: aws.Int64(int64(i + 1)),
+		}
+		fmt.Println("$$$$$$$ Etag:", etags[i], "Number:", i+1)
+	}
+
+
+	input := &s3.CompleteMultipartUploadInput{
+		Bucket:          aws.String(d.AWSBucketName), // Required
+		Key:             aws.String(path),            // Required
+		MultipartUpload: completedUpload,
+		UploadId:        aws.String(uploadId),
+	}
+
+	if _, err = svc.CompleteMultipartUpload(input); err != nil {
+		fmt.Println("CompleteMultipartUpload error: ", err)
+		AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
+		return false
+	}
 
 	return true
 }
@@ -343,4 +422,29 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func AbortMultiPartUpload(svc *s3.S3, bucketName, key, uploadId string) (err error) {
+	params := &s3.AbortMultipartUploadInput{
+		Bucket:   aws.String(bucketName),
+		Key:      aws.String(key),
+		UploadId: aws.String(uploadId),
+	}
+	_, err = svc.AbortMultipartUpload(params)
+	return
+}
+
+func UploadPart(svc *s3.S3, bucketName, key string, value []byte, uploadId string, partNumber int64) (etag string, err error) {
+	params := &s3.UploadPartInput{
+		Bucket:     aws.String(bucketName),
+		Key:        aws.String(key),
+		Body:       bytes.NewReader(value),
+		PartNumber: aws.Int64(partNumber),
+		UploadId:   aws.String(uploadId),
+	}
+	out, err := svc.UploadPart(params)
+	if err != nil {
+		return
+	}
+	return *out.ETag, nil
 }
