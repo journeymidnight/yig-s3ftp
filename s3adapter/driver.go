@@ -78,7 +78,7 @@ func (d *S3Driver) s3DirContents(path string, maxKeys int64, marker string) (*s3
 
 	if err != nil {
 		// A service error occurred.
-		fmt.Println("Error: ", err)
+		fmt.Println("ListObjects Error: ", err)
 	} else if err != nil {
 		// A non-service error occurred.
 		panic(err)
@@ -124,7 +124,7 @@ func (d *S3Driver) Bytes(path string) int64 {
 
 	if err != nil {
 		// A service error occurred.
-		fmt.Println("Error: ", err)
+		fmt.Println("HeadObject Error: ", err)
 		return -1
 	}
 
@@ -145,7 +145,7 @@ func (d *S3Driver) ModifiedTime(path string) (time.Time, bool) {
 
 	if err != nil {
 		// A service error occurred.
-		fmt.Println("Error: ", err)
+		fmt.Println("HeadObject Error: ", err)
 		return time.Now(), false
 	}
 
@@ -252,7 +252,7 @@ func (d *S3Driver) DeleteFile(path string) bool {
 
 	if err != nil {
 		// A service error occurred.
-		fmt.Println("Error: ", err)
+		fmt.Println("DeleteObject Error: ", err)
 		return false
 	}
 
@@ -284,7 +284,7 @@ func (d *S3Driver) GetFile(path string, position int64) (io.ReadCloser, bool) {
 	resp, err := svc.GetObject(params)
 	if err != nil {
 		// A service error occurred.
-		fmt.Println("Error: ", err)
+		fmt.Println("GetObject Error: ", err)
 		return nil, false
 	}
 
@@ -294,9 +294,6 @@ func (d *S3Driver) GetFile(path string, position int64) (io.ReadCloser, bool) {
 // PutFile uploads a file to S3
 func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 	svc := d.s3service()
-
-	fmt.Println("put path: ", path)
-	fmt.Println("wd: ", d.WorkingDirectory)
 
 	if strings.HasPrefix(path, "/") {
 		path = strings.TrimPrefix(path, "/")
@@ -355,7 +352,7 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 			AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
 			return false
 		}
-		fmt.Println("$$$$$$$ n:", n, "err:", err)
+
 		if err == io.EOF {
 			if offset != 0 {
 				etag, err := UploadPart(svc, d.AWSBucketName, path, buf, uploadId, partNum)
@@ -395,7 +392,6 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 			ETag:       aws.String(etags[i]),
 			PartNumber: aws.Int64(int64(i + 1)),
 		}
-		fmt.Println("$$$$$$$ Etag:", etags[i], "Number:", i+1)
 	}
 
 
