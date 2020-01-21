@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/koofr/graval"
+	"github.com/yob/graval"
 	"github.com/journeymidnight/yig-s3ftp/s3adapter"
 	"log"
 )
@@ -18,14 +18,8 @@ func main() {
 		Factory:    factory,
 		Hostname:   globalConfig.Host,
 		Port:       globalConfig.Port,
-		PassiveOpts: &graval.PassiveOpts{
-			ListenAddress: globalConfig.Host,
-			NatAddress:    globalConfig.Host,
-			PassivePorts: &graval.PassivePorts{
-				Low:  42000,
-				High: 45000,
-			},
-		},
+		PasvMinPort: 42000,
+		PasvMaxPort: 45000,
 	})
 
 	log.Printf("FTP2S3 server listening on %s:%d", globalConfig.Host, globalConfig.Port)

@@ -1,7 +1,7 @@
 package s3adapter
 
 import (
-	"github.com/koofr/graval"
+	"github.com/yob/graval"
 )
 
 type S3DriverFactory struct {

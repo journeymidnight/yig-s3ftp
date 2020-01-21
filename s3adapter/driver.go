@@ -132,7 +132,7 @@ func (d *S3Driver) Bytes(path string) int64 {
 }
 
 // ModifiedTime returns the LastModifiedTime for the path if the key exists
-func (d *S3Driver) ModifiedTime(path string) (time.Time, bool) {
+func (d *S3Driver) ModifiedTime(path string) (time.Time, error) {
 	svc := d.s3service()
 
 	path = strings.TrimPrefix(path, "/")
@@ -146,10 +146,10 @@ func (d *S3Driver) ModifiedTime(path string) (time.Time, bool) {
 	if err != nil {
 		// A service error occurred.
 		fmt.Println("HeadObject Error: ", err)
-		return time.Now(), false
+		return time.Now(), err
 	}
 
-	return *resp.LastModified, true
+	return *resp.LastModified, nil
 }
 
 // ChangeDir “changes directories” on S3 if there are files under the given path
@@ -179,7 +179,7 @@ func (d *S3Driver) ChangeDir(path string) bool {
 }
 
 // DirContents lists “directory” contents on S3
-func (d *S3Driver) DirContents(path string) ([]os.FileInfo, bool) {
+func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 	moreObjects := true
 	var objects []*s3.Object
 
@@ -231,7 +231,7 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo, bool) {
 		}
 	}
 
-	return files, true
+	return files
 }
 
 // DeleteDir would delete a directory, but isn't currently implemented
@@ -272,7 +272,7 @@ func (d *S3Driver) MakeDir(path string) bool {
 }
 
 // GetFile returns a reader for the given path on S3
-func (d *S3Driver) GetFile(path string, position int64) (io.ReadCloser, bool) {
+func (d *S3Driver) GetFile(path string) (io.ReadCloser, error) {
 	svc := d.s3service()
 
 	path = strings.TrimPrefix(path, "/")
@@ -285,10 +285,10 @@ func (d *S3Driver) GetFile(path string, position int64) (io.ReadCloser, bool) {
 	if err != nil {
 		// A service error occurred.
 		fmt.Println("GetObject Error: ", err)
-		return nil, false
+		return nil, err
 	}
 
-	return resp.Body, true
+	return resp.Body, nil
 }
 
 // PutFile uploads a file to S3
@@ -343,8 +343,8 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 
 	var partNum int64 = 1
 	offset := 0
-	buf := make([]byte, PartLength)
 	var etags []string
+	var buf = make([]byte, PartLength)
 	for {
 		n, err := reader.Read(buf[offset:])
 		if err != nil && err != io.EOF {
@@ -352,10 +352,10 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 			AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
 			return false
 		}
-
+		offset += n
 		if err == io.EOF {
 			if offset != 0 {
-				etag, err := UploadPart(svc, d.AWSBucketName, path, buf, uploadId, partNum)
+				etag, err := UploadPart(svc, d.AWSBucketName, path, buf[:offset] , uploadId, partNum)
 				if err != nil {
 					fmt.Println("UploadPart error: ", err)
 					AbortMultiPartUpload(svc, d.AWSBucketName, path, uploadId)
@@ -366,8 +366,7 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 			break
 		}
 
-		offset += n
-		if n < PartLength {
+		if offset < PartLength {
 			continue
 		}
 
