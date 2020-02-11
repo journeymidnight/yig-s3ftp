@@ -46,7 +46,8 @@ func (d *S3Driver) s3service() *s3.S3 {
 }
 
 func pathToS3PathPrefix(path string) *string {
-	path = strings.TrimPrefix(path, string(os.PathSeparator))
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
+	path = strings.TrimPrefix(path, "/")
 
 	if path == "" || strings.HasSuffix(path, "/") {
 		return aws.String(path)
@@ -113,8 +114,8 @@ func (d *S3Driver) Authenticate(username string, password string) bool {
 // Bytes returns the ContentLength for the path if the key exists
 func (d *S3Driver) Bytes(path string) int64 {
 	svc := d.s3service()
-
-	path = strings.TrimPrefix(path, string(os.PathSeparator))
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
+	path = strings.TrimPrefix(path, "/")
 
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(d.AWSBucketName), // Required
@@ -135,7 +136,8 @@ func (d *S3Driver) Bytes(path string) int64 {
 func (d *S3Driver) ModifiedTime(path string) (time.Time, error) {
 	svc := d.s3service()
 
-	path = strings.TrimPrefix(path, string(os.PathSeparator))
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
+	path = strings.TrimPrefix(path, "/")
 
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(d.AWSBucketName), // Required
@@ -155,7 +157,7 @@ func (d *S3Driver) ModifiedTime(path string) (time.Time, error) {
 // ChangeDir “changes directories” on S3 if there are files under the given path
 func (d *S3Driver) ChangeDir(path string) bool {
 	// resp, err := d.s3DirContents(path, 1, "")
-
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
 	if strings.HasPrefix(path, "/") {
 		d.WorkingDirectory = strings.TrimPrefix(path, "/")
 	} else {
@@ -215,7 +217,6 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 		var fi os.FileInfo
 
 		if strings.Contains(p, "/") || p == "" {
-
 			parts := strings.Split(p, "/")
 			dirPart := parts[0]
 
@@ -242,6 +243,7 @@ func (d *S3Driver) DeleteDir(path string) bool {
 // DeleteFile deletes the files from the given path
 func (d *S3Driver) DeleteFile(path string) bool {
 	svc := d.s3service()
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
 	path = strings.TrimPrefix(path, "/")
 
 	params := &s3.DeleteObjectInput{
@@ -275,6 +277,7 @@ func (d *S3Driver) MakeDir(path string) bool {
 func (d *S3Driver) GetFile(path string) (io.ReadCloser, error) {
 	svc := d.s3service()
 
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
 	path = strings.TrimPrefix(path, "/")
 
 	params := &s3.GetObjectInput{
@@ -294,8 +297,8 @@ func (d *S3Driver) GetFile(path string) (io.ReadCloser, error) {
 // PutFile uploads a file to S3
 func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 	svc := d.s3service()
-
-	if strings.HasPrefix(path, string(os.PathSeparator)) {
+	path = strings.Replace(path, string(os.PathSeparator), "/", -1)
+	if strings.HasPrefix(path, "/") {
 		path = strings.TrimPrefix(path, string(os.PathSeparator))
 	} else {
 		path = d.WorkingDirectory + path
@@ -308,7 +311,7 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 		contentType = "application/octet-stream"
 	}
 
-	if strings.HasSuffix(path, string(os.PathSeparator)) {
+	if strings.HasSuffix(path, "/") {
 		var body io.ReadSeeker
 		if reader != nil {
 			buf := new(bytes.Buffer)
