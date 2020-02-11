@@ -46,7 +46,7 @@ func (d *S3Driver) s3service() *s3.S3 {
 }
 
 func pathToS3PathPrefix(path string) *string {
-	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimPrefix(path, string(os.PathSeparator))
 
 	if path == "" || strings.HasSuffix(path, "/") {
 		return aws.String(path)
@@ -114,7 +114,7 @@ func (d *S3Driver) Authenticate(username string, password string) bool {
 func (d *S3Driver) Bytes(path string) int64 {
 	svc := d.s3service()
 
-	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimPrefix(path, string(os.PathSeparator))
 
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(d.AWSBucketName), // Required
@@ -135,7 +135,7 @@ func (d *S3Driver) Bytes(path string) int64 {
 func (d *S3Driver) ModifiedTime(path string) (time.Time, error) {
 	svc := d.s3service()
 
-	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimPrefix(path, string(os.PathSeparator))
 
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(d.AWSBucketName), // Required
@@ -295,8 +295,8 @@ func (d *S3Driver) GetFile(path string) (io.ReadCloser, error) {
 func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 	svc := d.s3service()
 
-	if strings.HasPrefix(path, "/") {
-		path = strings.TrimPrefix(path, "/")
+	if strings.HasPrefix(path, string(os.PathSeparator)) {
+		path = strings.TrimPrefix(path, string(os.PathSeparator))
 	} else {
 		path = d.WorkingDirectory + path
 	}
@@ -308,7 +308,7 @@ func (d *S3Driver) PutFile(path string, reader io.Reader) bool {
 		contentType = "application/octet-stream"
 	}
 
-	if strings.HasSuffix(path, "/") {
+	if strings.HasSuffix(path, string(os.PathSeparator)) {
 		var body io.ReadSeeker
 		if reader != nil {
 			buf := new(bytes.Buffer)
