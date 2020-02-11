@@ -2,7 +2,7 @@ package s3adapter
 
 import (
 	"path/filepath"
-	"github.com/koofr/graval"
+	"github.com/yob/graval"
 	"strings"
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/aws/credentials"
@@ -220,7 +220,7 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 			dirPart := parts[0]
 
 			if dirPart != d.WorkingDirectory && dirPart != "" && dirPart != "/" && !stringInSlice(dirPart, dirs) {
-				fi = graval.NewDirItem(dirPart)
+				fi = graval.NewDirItem(dirPart, time.Now().UTC())
 				files = append(files, fi)
 
 				dirs = append(dirs, dirPart)
