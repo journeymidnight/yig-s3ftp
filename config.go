@@ -5,7 +5,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const DefaultConfigPath = "./yig-ftp.toml"
+const DefaultConfigPath = "/etc/yig-ftp.toml"
 
 var globalConfig Config
 
