@@ -204,6 +204,9 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 				marker = *last.Key
 			}
 		}
+              if err != nil {
+                  return nil
+            }
 	}
 
 	prefix := pathToS3PathPrefix(path)
