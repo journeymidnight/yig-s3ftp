@@ -204,6 +204,9 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 				marker = *last.Key
 			}
 		}
+              if err != nil {
+                  return nil
+            }
 	}
 
 	prefix := pathToS3PathPrefix(path)
@@ -237,6 +240,7 @@ func (d *S3Driver) DirContents(path string) ([]os.FileInfo) {
 
 // DeleteDir would delete a directory, but isn't currently implemented
 func (d *S3Driver) DeleteDir(path string) bool {
+        d.DeleteFile(path+"/")
 	return false
 }
 
